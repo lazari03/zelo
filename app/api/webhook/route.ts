@@ -3,6 +3,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+type MetaWebhookPayload = {
+  object?: string;
+  entry?: Array<{
+    messaging?: Array<{
+      sender?: { id?: string };
+      recipient?: { id?: string };
+      message?: {
+        text?: string;
+        is_echo?: boolean;
+      };
+    }>;
+  }>;
+};
+
+type IncomingTextMessage = {
+  senderId: string;
+  text: string;
+};
+
+type OpenAIResponse = {
+  output_text?: string;
+  output?: Array<{
+    type?: string;
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
+  }>;
+};
+
 function isValidSignature(
   rawBody: string,
   signatureHeader: string,
@@ -26,6 +56,125 @@ function isValidSignature(
   }
 
   return timingSafeEqual(provided, expected);
+}
+
+function extractIncomingTextMessages(payload: MetaWebhookPayload): IncomingTextMessage[] {
+  const messages: IncomingTextMessage[] = [];
+
+  for (const entry of payload.entry ?? []) {
+    for (const event of entry.messaging ?? []) {
+      const senderId = event.sender?.id;
+      const text = event.message?.text?.trim();
+      const isEcho = event.message?.is_echo === true;
+
+      if (!senderId || !text || isEcho) {
+        continue;
+      }
+
+      messages.push({ senderId, text });
+    }
+  }
+
+  return messages;
+}
+
+function extractOpenAIText(responseData: OpenAIResponse): string {
+  if (typeof responseData.output_text === "string" && responseData.output_text.trim()) {
+    return responseData.output_text.trim();
+  }
+
+  const chunks: string[] = [];
+  for (const outputItem of responseData.output ?? []) {
+    if (outputItem.type !== "message") {
+      continue;
+    }
+
+    for (const content of outputItem.content ?? []) {
+      const isTextContent = content.type === "output_text" || content.type === "text";
+      if (isTextContent && typeof content.text === "string" && content.text.trim()) {
+        chunks.push(content.text.trim());
+      }
+    }
+  }
+
+  return chunks.join("\n").trim();
+}
+
+async function generateAiReply(customerMessage: string): Promise<string> {
+  const openAiApiKey = process.env.OPENAI_API_KEY;
+  const openAiModel = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const systemPrompt =
+    process.env.ZELO_SYSTEM_PROMPT ??
+    "You are a sales assistant for Albanian small businesses. Reply clearly and briefly, and help close the sale.";
+
+  if (!openAiApiKey) {
+    throw new Error("Missing OPENAI_API_KEY");
+  }
+
+  const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAiApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: openAiModel,
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: systemPrompt }],
+        },
+        {
+          role: "user",
+          content: [{ type: "input_text", text: customerMessage }],
+        },
+      ],
+    }),
+  });
+
+  if (!openAiResponse.ok) {
+    const body = await openAiResponse.text();
+    throw new Error(`OpenAI API error (${openAiResponse.status}): ${body}`);
+  }
+
+  const responseData = (await openAiResponse.json()) as OpenAIResponse;
+  const reply = extractOpenAIText(responseData);
+
+  if (!reply) {
+    throw new Error("OpenAI returned an empty reply");
+  }
+
+  return reply;
+}
+
+async function sendInstagramReply(recipientId: string, text: string): Promise<void> {
+  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
+
+  if (!pageAccessToken) {
+    throw new Error("Missing META_PAGE_ACCESS_TOKEN");
+  }
+
+  const metaResponse = await fetch(
+    `https://graph.facebook.com/v22.0/me/messages?access_token=${encodeURIComponent(
+      pageAccessToken
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        messaging_type: "RESPONSE",
+        message: { text },
+      }),
+    }
+  );
+
+  if (!metaResponse.ok) {
+    const body = await metaResponse.text();
+    throw new Error(`Meta Send API error (${metaResponse.status}): ${body}`);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -71,10 +220,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  let payload: MetaWebhookPayload;
   try {
-    JSON.parse(rawBody);
+    payload = JSON.parse(rawBody) as MetaWebhookPayload;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const incomingMessages = extractIncomingTextMessages(payload);
+
+  for (const incomingMessage of incomingMessages) {
+    try {
+      const aiReply = await generateAiReply(incomingMessage.text);
+      await sendInstagramReply(incomingMessage.senderId, aiReply);
+    } catch (error) {
+      console.error("Failed to process incoming Instagram message", {
+        senderId: incomingMessage.senderId,
+        error,
+      });
+    }
   }
 
   return new Response("EVENT_RECEIVED", { status: 200 });
