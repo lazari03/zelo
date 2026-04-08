@@ -148,14 +148,21 @@ async function generateAiReply(customerMessage: string): Promise<string> {
 }
 
 async function sendInstagramReply(recipientId: string, text: string): Promise<void> {
+  const pageId = process.env.META_PAGE_ID;
   const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
+
+  if (!pageId) {
+    throw new Error("Missing META_PAGE_ID");
+  }
 
   if (!pageAccessToken) {
     throw new Error("Missing META_PAGE_ACCESS_TOKEN");
   }
 
   const metaResponse = await fetch(
-    `https://graph.facebook.com/v22.0/me/messages?access_token=${encodeURIComponent(
+    `https://graph.facebook.com/v25.0/${encodeURIComponent(
+      pageId
+    )}/messages?access_token=${encodeURIComponent(
       pageAccessToken
     )}`,
     {
