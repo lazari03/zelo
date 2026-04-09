@@ -148,8 +148,8 @@ async function generateAiReply(customerMessage: string): Promise<string> {
 }
 
 async function sendInstagramReply(recipientId: string, text: string): Promise<void> {
-  const pageId = process.env.META_PAGE_ID;
-  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
+  const pageId = process.env.META_PAGE_ID?.trim();
+  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN?.trim();
 
   if (!pageId) {
     throw new Error("Missing META_PAGE_ID");
