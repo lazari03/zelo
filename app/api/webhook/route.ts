@@ -160,14 +160,11 @@ async function sendInstagramReply(recipientId: string, text: string): Promise<vo
   }
 
   const metaResponse = await fetch(
-    `https://graph.facebook.com/v25.0/${encodeURIComponent(
-      pageId
-    )}/messages?access_token=${encodeURIComponent(
-      pageAccessToken
-    )}`,
+    `https://graph.facebook.com/v25.0/${encodeURIComponent(pageId)}/messages`,
     {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
