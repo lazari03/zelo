@@ -160,7 +160,7 @@ async function sendInstagramReply(recipientId: string, text: string): Promise<vo
   }
 
   const metaResponse = await fetch(
-    `https://graph.facebook.com/v25.0/${encodeURIComponent(pageId)}/messages`,
+    `https://graph.instagram.com/v25.0/${encodeURIComponent(pageId)}/messages`,
     {
       method: "POST",
       headers: {
