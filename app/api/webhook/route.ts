@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const appSecret = process.env.META_APP_SECRET;
+  const appSecret = process.env.META_APP_SECRET?.trim();
 
   if (!appSecret) {
     return NextResponse.json(
@@ -222,6 +222,7 @@ export async function POST(request: NextRequest) {
 
   console.info("Webhook POST received", {
     hasSignatureHeader: Boolean(signatureHeader),
+    appSecretLength: appSecret.length,
   });
 
   if (!signatureHeader) {
@@ -232,7 +233,10 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
   if (!isValidSignature(rawBody, signatureHeader, appSecret)) {
-    console.warn("Webhook POST invalid signature");
+    console.warn("Webhook POST invalid signature", {
+      signatureHeader,
+      bodyLength: rawBody.length,
+    });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
