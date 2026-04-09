@@ -198,6 +198,12 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("hub.verify_token");
   const challenge = request.nextUrl.searchParams.get("hub.challenge");
 
+  console.info("Webhook GET received", {
+    mode,
+    hasVerifyToken: Boolean(token),
+    hasChallenge: Boolean(challenge),
+  });
+
   if (mode === "subscribe" && token === verifyToken && challenge) {
     return new Response(challenge, { status: 200 });
   }
@@ -217,13 +223,19 @@ export async function POST(request: NextRequest) {
 
   const signatureHeader = request.headers.get("x-hub-signature-256");
 
+  console.info("Webhook POST received", {
+    hasSignatureHeader: Boolean(signatureHeader),
+  });
+
   if (!signatureHeader) {
+    console.warn("Webhook POST missing signature header");
     return NextResponse.json({ error: "Missing signature header" }, { status: 401 });
   }
 
   const rawBody = await request.text();
 
   if (!isValidSignature(rawBody, signatureHeader, appSecret)) {
+    console.warn("Webhook POST invalid signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -235,6 +247,11 @@ export async function POST(request: NextRequest) {
   }
 
   const incomingMessages = extractIncomingTextMessages(payload);
+
+  console.info("Webhook POST parsed", {
+    object: payload.object ?? null,
+    incomingMessageCount: incomingMessages.length,
+  });
 
   for (const incomingMessage of incomingMessages) {
     try {
