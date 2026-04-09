@@ -34,7 +34,7 @@ type OpenAIResponse = {
 };
 
 function isValidSignature(
-  rawBody: string,
+  rawBody: Buffer,
   signatureHeader: string,
   appSecret: string
 ): boolean {
@@ -45,7 +45,7 @@ function isValidSignature(
   }
 
   const expectedHash = createHmac("sha256", appSecret)
-    .update(rawBody, "utf8")
+    .update(rawBody)
     .digest("hex");
 
   const provided = Buffer.from(signatureHash, "hex");
@@ -230,19 +230,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing signature header" }, { status: 401 });
   }
 
-  const rawBody = await request.text();
+  const rawBodyBuffer = Buffer.from(await request.arrayBuffer());
 
-  if (!isValidSignature(rawBody, signatureHeader, appSecret)) {
+  if (!isValidSignature(rawBodyBuffer, signatureHeader, appSecret)) {
     console.warn("Webhook POST invalid signature", {
       signatureHeader,
-      bodyLength: rawBody.length,
+      bodyLength: rawBodyBuffer.length,
     });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   let payload: MetaWebhookPayload;
   try {
-    payload = JSON.parse(rawBody) as MetaWebhookPayload;
+    payload = JSON.parse(rawBodyBuffer.toString("utf8")) as MetaWebhookPayload;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
