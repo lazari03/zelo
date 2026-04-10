@@ -20,6 +20,13 @@ if (process.env.NODE_ENV === "production") {
 const nextConfig: NextConfig = {
   serverExternalPackages: [],
 
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "*.googleusercontent.com" },
+    ],
+  },
+
   // Disable the x-powered-by header
   poweredByHeader: false,
 

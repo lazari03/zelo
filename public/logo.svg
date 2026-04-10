@@ -1,0 +1,22 @@
+<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="40" height="40" rx="10" fill="url(#bg)"/>
+  <!-- Inner highlight border -->
+  <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="9.25" stroke="white" stroke-opacity="0.18" stroke-width="0.75"/>
+  <!-- Lightning-Z: top bar → lightning diagonal → bottom bar -->
+  <path d="M9 12 L31 12 L20 21 L25 21 L9 30 L31 30"
+        stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"
+        filter="url(#glow)"/>
+  <!-- Spark dot at lightning elbow -->
+  <circle cx="22.5" cy="21" r="2" fill="white" opacity="0.85"/>
+</svg>

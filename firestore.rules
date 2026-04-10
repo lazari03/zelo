@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: authenticated and owns the document ──────────────────────────
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── instagram_accounts ────────────────────────────────────────────────────
+    // Created and updated server-side only (Admin SDK in OAuth callback).
+    // Users can read their own accounts and delete (disconnect) them.
+    match /instagram_accounts/{docId} {
+      allow read:   if isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+      allow create, update: if false; // Admin SDK only
+    }
+
+    // ── conversations ─────────────────────────────────────────────────────────
+    // Written exclusively by the webhook (Admin SDK).
+    // Users can only read their own conversations — no client writes.
+    match /conversations/{convId} {
+      allow read:          if isOwner(resource.data.userId);
+      allow create, write: if false; // Admin SDK only
+    }
+
+    // ── orders ────────────────────────────────────────────────────────────────
+    // Created by the webhook (Admin SDK).
+    // Users can read and update the status field only — no other fields.
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.userId);
+      allow update:
+        if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+        && request.resource.data.status in ["pending", "confirmed", "completed", "cancelled"];
+      allow create, delete: if false; // Admin SDK only
+    }
+
+    // ── analytics (subcollection) ─────────────────────────────────────────────
+    // Written exclusively by the webhook. Users can only read their own analytics.
+    match /analytics/{userId}/daily/{dayId} {
+      allow read:          if isOwner(userId);
+      allow create, write: if false; // Admin SDK only
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
