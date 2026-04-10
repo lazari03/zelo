@@ -127,22 +127,28 @@ export default function OverviewPage() {
   const [loading,      setLoading]      = useState(true);
   const [accounts,     setAccounts]     = useState<InstagramAccount[]>([]);
 
+  // Toggle AI on/off for an account
+  const toggleAi = async (pageId: string, current: boolean) => {
+    await updateDoc(doc(db, "instagram_accounts", pageId), { aiEnabled: !current });
+    setAccounts((prev) => prev.map((a) => a.pageId === pageId ? { ...a, aiEnabled: !current } : a));
+  };
+
   useEffect(() => {
     if (!user) return;
 
-    async function load() {
+    (async function load() {
       // ── Counts ──
       const [convCount, orderCount, todayConvSnap] = await Promise.all([
         getCountFromServer(
-          query(collection(db, "conversations"), where("userId", "==", user!.uid))
+          query(collection(db, "conversations"), where("userId", "==", user.uid))
         ),
         getCountFromServer(
-          query(collection(db, "orders"), where("userId", "==", user!.uid))
+          query(collection(db, "orders"), where("userId", "==", user.uid))
         ),
         getDocs(
           query(
             collection(db, "conversations"),
-            where("userId", "==", user!.uid),
+            where("userId", "==", user.uid),
             where("updatedAt", ">=", Date.now() - 86_400_000)
           )
         ),
@@ -150,7 +156,7 @@ export default function OverviewPage() {
 
       // ── Total messages (sum messageCount across conversations) ──
       const allConvsSnap = await getDocs(
-        query(collection(db, "conversations"), where("userId", "==", user!.uid))
+        query(collection(db, "conversations"), where("userId", "==", user.uid))
       );
       const totalMessages = allConvsSnap.docs.reduce(
         (sum, d) => sum + ((d.data().messageCount as number) ?? 0), 0
@@ -174,7 +180,7 @@ export default function OverviewPage() {
 
       const dailySnap = await getDocs(
         query(
-          collection(db, "analytics", user!.uid, "daily"),
+          collection(db, "analytics", user.uid, "daily"),
           where("date", ">=", days[0].date),
           orderBy("date", "asc")
         )
@@ -190,7 +196,7 @@ export default function OverviewPage() {
       const recentSnap = await getDocs(
         query(
           collection(db, "conversations"),
-          where("userId", "==", user!.uid),
+          where("userId", "==", user.uid),
           orderBy("updatedAt", "desc"),
           limit(6)
         )
@@ -208,9 +214,7 @@ export default function OverviewPage() {
         .catch(console.error);
 
       setLoading(false);
-    }
-
-    load().catch(console.error);
+    })().catch(console.error);
   }, [user]);
 
   if (loading) {
@@ -247,15 +251,15 @@ export default function OverviewPage() {
           {accounts.map((acc) => (
             <div key={acc.pageId} className="glass-card p-5 flex flex-col gap-2 items-start">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold text-white/90 text-[15px] truncate max-w-[140px]">{acc.pageName || acc.pageId}</span>
+                <span className="font-semibold text-white/90 text-[15px] truncate max-w-[140px]">{acc.instagramUsername || acc.pageId}</span>
                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 ml-2">Connected</span>
               </div>
               <div className="flex items-center gap-3 w-full">
                 <button
-                  className={`px-3 py-1.5 rounded-lg font-medium text-xs transition ${acc.aiEnabled ? "bg-violet-500/80 text-white" : "bg-zinc-700/60 text-zinc-200"}`}
-                  onClick={() => toggleAi(acc.pageId, !!acc.aiEnabled)}
+                  className={`px-3 py-1.5 rounded-lg font-medium text-xs transition ${(acc as any).aiEnabled ? "bg-violet-500/80 text-white" : "bg-zinc-700/60 text-zinc-200"}`}
+                  onClick={() => toggleAi(acc.pageId, !!(acc as any).aiEnabled)}
                 >
-                  {acc.aiEnabled ? "AI: ON (Takeover)" : "AI: OFF (Manual)"}
+                  {(acc as any).aiEnabled ? "AI: ON (Takeover)" : "AI: OFF (Manual)"}
                 </button>
                 <Link href={`/dashboard/inbox/${acc.pageId}`} className="text-blue-400 hover:underline text-xs">Inbox</Link>
                 <Link href={`/dashboard/stats/${acc.pageId}`} className="text-amber-400 hover:underline text-xs">Stats</Link>
@@ -343,7 +347,5 @@ export default function OverviewPage() {
 }
 
 // Toggle AI on/off for an account
-async function toggleAi(pageId: string, current: boolean) {
-  await updateDoc(doc(db, "instagram_accounts", pageId), { aiEnabled: !current });
-  setAccounts((prev) => prev.map((a) => a.pageId === pageId ? { ...a, aiEnabled: !current } : a));
-}
+// (must be declared after setAccounts is defined)
+// Move this function inside the OverviewPage component, after setAccounts is defined
