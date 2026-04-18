@@ -62,22 +62,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No long-lived access token returned" }, { status: 502 });
   }
 
-  /* ── 3. Fetch the user's Instagram Business account info ── */
+  /* ── 3. Fetch the user's Instagram Business account info via pages ── */
   let instagramUsername = "";
   let pageId = "";
+  let pageAccessToken = llData.access_token;
   try {
-    const meUrl = new URL("https://graph.facebook.com/v25.0/me");
-    meUrl.searchParams.set("fields",       "id,name,instagram_business_account{id,username}");
-    meUrl.searchParams.set("access_token", llData.access_token);
-    const meRes  = await fetch(meUrl.toString());
-    const meData = await meRes.json() as {
-      id?: string;
-      instagram_business_account?: { id?: string; username?: string };
-    };
-    pageId = meData.id ?? "";
-    instagramUsername = meData.instagram_business_account?.username ?? "";
+    const pagesUrl = new URL("https://graph.facebook.com/v25.0/me/accounts");
+    pagesUrl.searchParams.set("access_token", llData.access_token);
+    const pagesRes  = await fetch(pagesUrl.toString());
+    const pagesData = await pagesRes.json() as { data?: Array<{ id: string; access_token: string }> };
+    const page = pagesData.data?.[0];
+    if (page) {
+      pageId = page.id;
+      pageAccessToken = page.access_token; // page-scoped token for messaging
+      const igUrl = new URL(`https://graph.facebook.com/v25.0/${page.id}`);
+      igUrl.searchParams.set("fields",       "instagram_business_account{id,username}");
+      igUrl.searchParams.set("access_token", page.access_token);
+      const igRes  = await fetch(igUrl.toString());
+      const igData = await igRes.json() as {
+        instagram_business_account?: { id?: string; username?: string };
+      };
+      instagramUsername = igData.instagram_business_account?.username ?? "";
+    }
   } catch {
-    console.warn("Could not fetch Meta user info — storing without username");
+    console.warn("Could not fetch Meta page info — storing without username");
   }
 
   /* ── 4. Persist to Firestore (keyed by pageId so re-connecting updates in place) ── */
@@ -89,7 +97,7 @@ export async function GET(request: NextRequest) {
         userId,
         pageId,
         instagramUsername,
-        accessToken:  llData.access_token,
+        accessToken:  pageAccessToken,
         expiresIn:    llData.expires_in ?? null,
         connectedAt:  Date.now(),
       }, { merge: true });
@@ -99,7 +107,25 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  /* ── 5. Set session cookie and redirect to dashboard ── */
+  /* ── 5. Subscribe the page to the webhook ── */
+  if (pageId && pageAccessToken) {
+    try {
+      const subUrl = new URL(`https://graph.facebook.com/v25.0/${pageId}/subscribed_apps`);
+      subUrl.searchParams.set("subscribed_fields", "messages,messaging_postbacks");
+      subUrl.searchParams.set("access_token", pageAccessToken);
+      const subRes = await fetch(subUrl.toString(), { method: "POST" });
+      if (!subRes.ok) {
+        const body = await subRes.text();
+        console.warn("Webhook subscription failed (non-fatal)", { status: subRes.status, body });
+      } else {
+        console.info("Subscribed page to webhook", { pageId });
+      }
+    } catch (err) {
+      console.warn("Webhook subscription threw (non-fatal)", err);
+    }
+  }
+
+  /* ── 6. Set session cookie and redirect to dashboard ── */
   const redirectResponse = NextResponse.redirect(new URL("/dashboard", request.url));
   redirectResponse.cookies.set("zelo_connected", "1", {
     httpOnly: false,

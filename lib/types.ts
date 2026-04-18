@@ -9,6 +9,7 @@ export type InstagramAccount = {
   accessToken: string;       // long-lived Instagram token — server-side only
   expiresIn: number | null;
   connectedAt: number;
+  aiEnabled?: boolean;
 };
 
 export type ChatMessage = {

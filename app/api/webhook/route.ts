@@ -94,9 +94,32 @@ async function processMessage(msg: IncomingMessage): Promise<void> {
   // Resolve userId and accessToken — fall back to env vars for legacy single-account setup
   const userId      = account?.userId      ?? "__legacy__";
   const accessToken = account?.accessToken ?? process.env.META_PAGE_ACCESS_TOKEN?.trim() ?? "";
+  const aiEnabled   = account?.aiEnabled   ?? true; // default on for legacy accounts
 
   if (!accessToken) {
     throw new Error(`No access token for pageId ${msg.pageId}`);
+  }
+
+  if (!aiEnabled) {
+    // Save the incoming message to conversation history but skip AI reply
+    const convId  = `${msg.pageId}_${msg.senderId}`;
+    const convRef = db.collection("conversations").doc(convId);
+    const convSnap = await convRef.get();
+    const convData = convSnap.exists ? convSnap.data()! : null;
+    const history: ChatMessage[] = Array.isArray(convData?.messages) ? convData.messages : [];
+    const now = Date.now();
+    await convRef.set({
+      userId,
+      pageId:       msg.pageId,
+      senderId:     msg.senderId,
+      messages:     [...history, { role: "user", content: msg.text, timestamp: now }],
+      messageCount: history.length + 1,
+      lastMessage:  msg.text.slice(0, 150),
+      orderDetected: convData?.orderDetected ?? false,
+      createdAt:    convData?.createdAt ?? now,
+      updatedAt:    now,
+    }, { merge: true });
+    return;
   }
 
   const convId  = `${msg.pageId}_${msg.senderId}`;

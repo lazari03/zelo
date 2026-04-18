@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import type { InstagramAccount } from "@/lib/types";
@@ -21,7 +21,8 @@ export default function AccountsPage() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<AccountDoc[]>([]);
   const [loading,  setLoading]  = useState(true);
-  const [removing, setRemoving] = useState<string | null>(null);
+  const [removing,  setRemoving]  = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -38,14 +39,28 @@ export default function AccountsPage() {
     const redirectUri = encodeURIComponent(
       process.env.NEXT_PUBLIC_META_REDIRECT_URI ?? `${window.location.origin}/api/auth/meta/callback`
     );
-    const scope = encodeURIComponent("instagram_basic,instagram_manage_messages,pages_messaging");
+    const scope = encodeURIComponent("pages_show_list,pages_messaging");
     const state = encodeURIComponent(user?.uid ?? "");
     return `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${state}`;
   }
 
+  async function handleRefresh(id: string) {
+    setRefreshing(id);
+    await fetch("/api/auth/meta/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId: id, userId: user?.uid }),
+    });
+    setRefreshing(null);
+  }
+
   async function handleRemove(id: string) {
     setRemoving(id);
-    await deleteDoc(doc(db, "instagram_accounts", id));
+    await fetch("/api/auth/meta/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId: id, userId: user?.uid }),
+    });
     setRemoving(null);
   }
 
@@ -109,6 +124,11 @@ export default function AccountsPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span className="text-white/30 text-[11.5px]">Active</span>
               </div>
+              <button onClick={() => handleRefresh(acc.id)} disabled={refreshing === acc.id}
+                title="Refresh token"
+                className="opacity-0 group-hover:opacity-100 text-white/25 hover:text-blue-400 transition-all disabled:opacity-20">
+                <Icon path="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" size={13} />
+              </button>
               <button onClick={() => handleRemove(acc.id)} disabled={removing === acc.id}
                 title="Disconnect account"
                 className="opacity-0 group-hover:opacity-100 text-white/25 hover:text-red-400 transition-all disabled:opacity-20 ml-1">

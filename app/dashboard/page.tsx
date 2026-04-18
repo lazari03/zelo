@@ -233,13 +233,13 @@ export default function OverviewPage() {
     <div className="max-w-4xl space-y-6 w-full px-2 sm:px-4 mx-auto">
       {/* Connect Instagram button */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-        <a
-          href="/api/auth/instagram"
+        <Link
+          href="/dashboard/accounts"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold shadow hover:scale-105 transition text-base"
         >
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#fff"/><path d="M7.75 2A5.75 5.75 0 0 0 2 7.75v8.5A5.75 5.75 0 0 0 7.75 22h8.5A5.75 5.75 0 0 0 22 16.25v-8.5A5.75 5.75 0 0 0 16.25 2h-8.5Zm0 1.5h8.5A4.25 4.25 0 0 1 20.5 7.75v8.5a4.25 4.25 0 0 1-4.25 4.25h-8.5A4.25 4.25 0 0 1 3.5 16.25v-8.5A4.25 4.25 0 0 1 7.75 3.5Zm8.25 2.25a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM12 7.25A4.75 4.75 0 1 0 12 16.75a4.75 4.75 0 0 0 0-9.5Zm0 1.5a3.25 3.25 0 1 1 0 6.5a3.25 3.25 0 0 1 0-6.5Z" fill="#262626"/></svg>
           Connect Instagram
-        </a>
+        </Link>
         <span className="text-xs text-zinc-400 text-center sm:text-left">
           You can connect more than one Instagram account.
         </span>
