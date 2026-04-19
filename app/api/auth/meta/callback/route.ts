@@ -53,14 +53,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No access token returned" }, { status: 502 });
   }
 
-  /* ── 2. Fetch Instagram user info ── */
+  /* ── 2. Exchange for long-lived token ── */
+  let finalToken   = tokenData.access_token;
+  let finalExpires = tokenData.expires_in ?? null;
+
+  try {
+    const llUrl = new URL("https://graph.instagram.com/access_token");
+    llUrl.searchParams.set("grant_type",    "ig_exchange_token");
+    llUrl.searchParams.set("client_secret", appSecret);
+    llUrl.searchParams.set("access_token",  tokenData.access_token);
+    const llRes  = await fetch(llUrl.toString());
+    const llBody = await llRes.text();
+    console.info("Long-lived token exchange", { status: llRes.status, body: llBody });
+    if (llRes.ok) {
+      const llData = JSON.parse(llBody) as { access_token?: string; expires_in?: number };
+      if (llData.access_token) {
+        finalToken   = llData.access_token;
+        finalExpires = llData.expires_in ?? null;
+        console.info("Long-lived token obtained, expires_in:", finalExpires);
+      }
+    } else {
+      console.warn("Long-lived exchange failed, using short-lived token");
+    }
+  } catch (err) {
+    console.warn("Long-lived exchange threw, using short-lived token", err);
+  }
+
+  /* ── 3. Fetch Instagram user info ── */
   let instagramUsername = "";
   let igUserId = String(tokenData.user_id ?? "");
 
   try {
     const meUrl = new URL("https://graph.instagram.com/me");
     meUrl.searchParams.set("fields",       "id,username");
-    meUrl.searchParams.set("access_token", tokenData.access_token);
+    meUrl.searchParams.set("access_token", finalToken);
     const meRes  = await fetch(meUrl.toString());
     const meData = await meRes.json() as { id?: string; username?: string };
     if (meData.id)       igUserId          = meData.id;
@@ -77,8 +103,8 @@ export async function GET(request: NextRequest) {
         userId,
         pageId:            igUserId,   // igUserId used as pageId for webhook lookup
         instagramUsername,
-        accessToken:       tokenData.access_token,
-        expiresIn:         tokenData.expires_in ?? null,
+        accessToken:       finalToken,
+        expiresIn:         finalExpires,
         connectedAt:       Date.now(),
       }, { merge: true });
       console.info("Saved Instagram account to Firestore", { userId, igUserId, instagramUsername });
