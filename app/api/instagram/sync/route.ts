@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
+const FB_API = "https://graph.facebook.com/v21.0";
 const IG_API = "https://graph.instagram.com/v21.0";
 
 export async function POST(request: NextRequest) {
@@ -22,17 +23,35 @@ export async function POST(request: NextRequest) {
     const { accessToken, pageId } = accountDoc.data() as { accessToken: string; pageId: string };
     if (!accessToken || !pageId) continue;
 
-    // Verify token is valid
-    const meRes = await fetch(`${IG_API}/me?fields=id,username&access_token=${accessToken}`);
-    const meData = await meRes.json() as { id?: string; username?: string; error?: unknown };
-    console.info("Token check", { ok: meRes.ok, data: meData });
-    if (!meRes.ok) {
-      console.error("Access token invalid for account", pageId);
-      continue;
+    console.info("Trying token", { pageId, tokenPrefix: accessToken.slice(0, 12) + "…", tokenLen: accessToken.length });
+
+    // Try IG API first, fall back to FB API
+    let resolvedId = pageId;
+    let apiBase = IG_API;
+
+    const igMe = await fetch(`${IG_API}/me?fields=id,username&access_token=${accessToken}`);
+    const igMeData = await igMe.json() as { id?: string; username?: string; error?: unknown };
+    console.info("IG /me", { ok: igMe.ok, data: igMeData });
+
+    if (!igMe.ok) {
+      // Fall back to Facebook Graph API
+      const fbMe = await fetch(`${FB_API}/me?fields=id,name&access_token=${accessToken}`);
+      const fbMeData = await fbMe.json() as { id?: string; name?: string; error?: unknown };
+      console.info("FB /me", { ok: fbMe.ok, data: fbMeData });
+      if (!fbMe.ok) {
+        console.error("Token invalid on both IG and FB APIs for account", pageId);
+        continue;
+      }
+      resolvedId = fbMeData.id ?? pageId;
+      apiBase = FB_API;
+    } else {
+      resolvedId = igMeData.id ?? pageId;
     }
 
-    // Try fetching conversations via /me/conversations
-    const convUrl = new URL(`${IG_API}/me/conversations`);
+    console.info("Using API", { apiBase, resolvedId });
+
+    // Fetch conversations
+    const convUrl = new URL(`${apiBase}/${resolvedId}/conversations`);
     convUrl.searchParams.set("platform", "instagram");
     convUrl.searchParams.set("fields", "id,updated_time,participants");
     convUrl.searchParams.set("access_token", accessToken);
@@ -58,7 +77,7 @@ export async function POST(request: NextRequest) {
       const otherParticipant = conv.participants?.data.find((p) => p.id !== pageId);
       const senderId = otherParticipant?.id ?? conv.id;
 
-      const msgUrl = new URL(`${IG_API}/${conv.id}/messages`);
+      const msgUrl = new URL(`${apiBase}/${conv.id}/messages`);
       msgUrl.searchParams.set("fields", "id,text,from,timestamp");
       msgUrl.searchParams.set("access_token", accessToken);
 
