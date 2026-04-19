@@ -3,10 +3,10 @@
 ## Done
 
 - [x] Firebase Auth — Google OAuth login/logout, session cookies
-- [x] Instagram OAuth flow — `/api/auth/meta/callback` with long-lived token (60-day)
-- [x] Fix: Instagram account discovery now goes through `/me/accounts` → page → `instagram_business_account`
-- [x] Fix: Stores page-scoped access token (required for `pages_messaging`)
-- [x] Fix: OAuth scopes corrected to `pages_show_list,pages_messaging` — removed deprecated `instagram_basic` and `instagram_manage_messages` (sunset Dec 2024)
+- [x] Instagram OAuth flow — uses Instagram Login (`instagram.com/oauth/authorize`), not Facebook dialog
+- [x] Token exchange via `api.instagram.com/oauth/access_token`, long-lived via `graph.instagram.com/access_token`
+- [x] Scopes: `instagram_business_basic,instagram_business_manage_messages`
+- [x] Token refresh via `graph.instagram.com/refresh_access_token`
 - [x] Webhook handler — Meta signature verification, incoming DM processing
 - [x] AI auto-reply — OpenAI integration, per-conversation message history
 - [x] Order detection — keyword matching (Albanian + English)

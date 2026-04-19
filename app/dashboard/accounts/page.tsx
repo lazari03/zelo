@@ -35,13 +35,13 @@ export default function AccountsPage() {
   }, [user]);
 
   function buildConnectUrl() {
-    const appId      = process.env.NEXT_PUBLIC_META_APP_ID ?? "";
+    const appId       = process.env.NEXT_PUBLIC_META_APP_ID ?? "";
     const redirectUri = encodeURIComponent(
       process.env.NEXT_PUBLIC_META_REDIRECT_URI ?? `${window.location.origin}/api/auth/meta/callback`
     );
-    const scope = encodeURIComponent("pages_show_list,pages_messaging");
+    const scope = encodeURIComponent("instagram_business_basic,instagram_business_manage_messages");
     const state = encodeURIComponent(user?.uid ?? "");
-    return `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${state}`;
+    return `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${appId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
   }
 
   async function handleRefresh(id: string) {

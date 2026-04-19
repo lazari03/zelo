@@ -28,11 +28,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No token to refresh" }, { status: 400 });
   }
 
-  const refreshUrl = new URL("https://graph.facebook.com/v25.0/oauth/access_token");
-  refreshUrl.searchParams.set("grant_type",        "fb_exchange_token");
-  refreshUrl.searchParams.set("client_id",         appId);
-  refreshUrl.searchParams.set("client_secret",     appSecret);
-  refreshUrl.searchParams.set("fb_exchange_token", currentToken);
+  const refreshUrl = new URL("https://graph.instagram.com/refresh_access_token");
+  refreshUrl.searchParams.set("grant_type",   "ig_refresh_token");
+  refreshUrl.searchParams.set("access_token", currentToken);
 
   const res = await fetch(refreshUrl.toString());
   if (!res.ok) {
