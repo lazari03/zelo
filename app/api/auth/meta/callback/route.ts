@@ -53,12 +53,17 @@ export async function GET(request: NextRequest) {
   }
 
   /* ── 2. Long-lived token (60 days) ── */
-  const llUrl = new URL("https://graph.instagram.com/access_token");
-  llUrl.searchParams.set("grant_type",    "ig_exchange_token");
-  llUrl.searchParams.set("client_secret", appSecret);
-  llUrl.searchParams.set("access_token",  tokenData.access_token);
+  const llBody = new URLSearchParams({
+    grant_type:    "ig_exchange_token",
+    client_secret: appSecret,
+    access_token:  tokenData.access_token,
+  });
 
-  const llRes = await fetch(llUrl.toString());
+  const llRes = await fetch("https://graph.instagram.com/access_token", {
+    method:  "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:    llBody.toString(),
+  });
   if (!llRes.ok) {
     const body = await llRes.text();
     console.error("Instagram long-lived token exchange failed", { status: llRes.status, body });
