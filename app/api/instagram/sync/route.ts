@@ -25,59 +25,48 @@ export async function POST(request: NextRequest) {
 
     console.info("Trying token", { pageId, tokenPrefix: accessToken.slice(0, 12) + "…", tokenLen: accessToken.length });
 
-    // Try IG API first, fall back to FB API
-    let resolvedId = pageId;
+    // Skip /me verification — use stored pageId directly
+    // Try both IG and FB conversation endpoints
+    let convUrl: URL;
     let apiBase = IG_API;
 
-    const igMeUrl = new URL(`${IG_API}/me`);
-    igMeUrl.searchParams.set("fields", "id,username");
-    igMeUrl.searchParams.set("access_token", accessToken);
-    const igMe = await fetch(igMeUrl.toString());
-    const igMeData = await igMe.json() as { id?: string; username?: string; error?: unknown };
-    console.info("IG /me", { ok: igMe.ok, data: igMeData });
-
-    if (!igMe.ok) {
-      // Fall back to Facebook Graph API
-      const fbMeUrl = new URL(`${FB_API}/me`);
-      fbMeUrl.searchParams.set("fields", "id,name");
-      fbMeUrl.searchParams.set("access_token", accessToken);
-      const fbMe = await fetch(fbMeUrl.toString());
-      const fbMeData = await fbMe.json() as { id?: string; name?: string; error?: unknown };
-      console.info("FB /me", { ok: fbMe.ok, data: fbMeData });
-      if (!fbMe.ok) {
-        console.error("Token invalid on both IG and FB APIs for account", pageId);
-        continue;
-      }
-      resolvedId = fbMeData.id ?? pageId;
-      apiBase = FB_API;
-    } else {
-      resolvedId = igMeData.id ?? pageId;
-    }
-
-    console.info("Using API", { apiBase, resolvedId });
-
-    // Fetch conversations
-    const convUrl = new URL(`${apiBase}/${resolvedId}/conversations`);
+    // First attempt: IG API with pageId
+    convUrl = new URL(`${IG_API}/v21.0/${pageId}/conversations`);
     convUrl.searchParams.set("platform", "instagram");
     convUrl.searchParams.set("fields", "id,updated_time,participants");
     convUrl.searchParams.set("access_token", accessToken);
 
-    const convRes = await fetch(convUrl.toString());
-    const convBody = await convRes.text();
-    console.info("Conversations response", { status: convRes.status, body: convBody });
+    let convRes = await fetch(convUrl.toString());
+    let convBody = await convRes.text();
+    console.info("IG conversations", { status: convRes.status, body: convBody });
 
+    // Second attempt: IG API with /me/conversations
     if (!convRes.ok) {
-      console.error("Failed to fetch conversations", { status: convRes.status, body: convBody });
-      continue;
+      convUrl = new URL(`${IG_API}/v21.0/me/conversations`);
+      convUrl.searchParams.set("platform", "instagram");
+      convUrl.searchParams.set("fields", "id,updated_time,participants");
+      convUrl.searchParams.set("access_token", accessToken);
+      convRes = await fetch(convUrl.toString());
+      convBody = await convRes.text();
+      console.info("IG /me/conversations", { status: convRes.status, body: convBody });
     }
 
-    const convData = JSON.parse(convBody) as {
-      data?: Array<{
-        id: string;
-        updated_time: string;
-        participants?: { data: Array<{ id: string }> };
-      }>;
-    };
+    // Third attempt: FB Graph API
+    if (!convRes.ok) {
+      apiBase = FB_API;
+      convUrl = new URL(`${FB_API}/${pageId}/conversations`);
+      convUrl.searchParams.set("platform", "instagram");
+      convUrl.searchParams.set("fields", "id,updated_time,participants");
+      convUrl.searchParams.set("access_token", accessToken);
+      convRes = await fetch(convUrl.toString());
+      convBody = await convRes.text();
+      console.info("FB conversations", { status: convRes.status, body: convBody });
+    }
+
+    if (!convRes.ok) {
+      console.error("All conversation endpoints failed for account", pageId);
+      continue;
+    }
 
     for (const conv of convData.data ?? []) {
       const otherParticipant = conv.participants?.data.find((p) => p.id !== pageId);
