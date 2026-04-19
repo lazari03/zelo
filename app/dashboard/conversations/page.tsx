@@ -154,6 +154,12 @@ export default function ConversationsPage() {
       setConversations(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Conversation) })));
       setLoading(false);
     });
+    // Auto-sync on mount
+    fetch("/api/instagram/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.uid }),
+    }).catch(() => {});
     return unsub;
   }, [user]);
 

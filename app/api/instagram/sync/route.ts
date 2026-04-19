@@ -22,22 +22,35 @@ export async function POST(request: NextRequest) {
     const { accessToken, pageId } = accountDoc.data() as { accessToken: string; pageId: string };
     if (!accessToken || !pageId) continue;
 
-    const convUrl = new URL(`${IG_API}/${pageId}/conversations`);
+    // Verify token is valid
+    const meRes = await fetch(`${IG_API}/me?fields=id,username&access_token=${accessToken}`);
+    const meData = await meRes.json() as { id?: string; username?: string; error?: unknown };
+    console.info("Token check", { ok: meRes.ok, data: meData });
+    if (!meRes.ok) {
+      console.error("Access token invalid for account", pageId);
+      continue;
+    }
+
+    // Try fetching conversations via /me/conversations
+    const convUrl = new URL(`${IG_API}/me/conversations`);
     convUrl.searchParams.set("platform", "instagram");
     convUrl.searchParams.set("fields", "id,updated_time,participants");
     convUrl.searchParams.set("access_token", accessToken);
 
     const convRes = await fetch(convUrl.toString());
+    const convBody = await convRes.text();
+    console.info("Conversations response", { status: convRes.status, body: convBody });
+
     if (!convRes.ok) {
-      console.error("Failed to fetch conversations", { status: convRes.status, body: await convRes.text() });
+      console.error("Failed to fetch conversations", { status: convRes.status, body: convBody });
       continue;
     }
 
-    const convData = await convRes.json() as {
+    const convData = JSON.parse(convBody) as {
       data?: Array<{
         id: string;
         updated_time: string;
-        participants?: { data: Array<{ id: string; username?: string }> };
+        participants?: { data: Array<{ id: string }> };
       }>;
     };
 
