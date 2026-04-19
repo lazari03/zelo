@@ -4,7 +4,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 export const runtime = "nodejs";
 
 const FB_API = "https://graph.facebook.com/v21.0";
-const IG_API = "https://graph.instagram.com/v21.0";
+const IG_API = "https://graph.instagram.com";
 
 export async function POST(request: NextRequest) {
   const { userId } = await request.json() as { userId?: string };
