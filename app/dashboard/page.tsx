@@ -261,8 +261,7 @@ export default function OverviewPage() {
                 >
                   {(acc as any).aiEnabled ? "AI: ON (Takeover)" : "AI: OFF (Manual)"}
                 </button>
-                <Link href={`/dashboard/inbox/${acc.pageId}`} className="text-blue-400 hover:underline text-xs">Inbox</Link>
-                <Link href={`/dashboard/stats/${acc.pageId}`} className="text-amber-400 hover:underline text-xs">Stats</Link>
+                <Link href="/dashboard/conversations" className="text-blue-400 hover:underline text-xs">Inbox</Link>
               </div>
             </div>
           ))}
