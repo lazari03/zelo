@@ -29,13 +29,19 @@ export async function POST(request: NextRequest) {
     let resolvedId = pageId;
     let apiBase = IG_API;
 
-    const igMe = await fetch(`${IG_API}/me?fields=id,username&access_token=${accessToken}`);
+    const igMeUrl = new URL(`${IG_API}/me`);
+    igMeUrl.searchParams.set("fields", "id,username");
+    igMeUrl.searchParams.set("access_token", accessToken);
+    const igMe = await fetch(igMeUrl.toString());
     const igMeData = await igMe.json() as { id?: string; username?: string; error?: unknown };
     console.info("IG /me", { ok: igMe.ok, data: igMeData });
 
     if (!igMe.ok) {
       // Fall back to Facebook Graph API
-      const fbMe = await fetch(`${FB_API}/me?fields=id,name&access_token=${accessToken}`);
+      const fbMeUrl = new URL(`${FB_API}/me`);
+      fbMeUrl.searchParams.set("fields", "id,name");
+      fbMeUrl.searchParams.set("access_token", accessToken);
+      const fbMe = await fetch(fbMeUrl.toString());
       const fbMeData = await fbMe.json() as { id?: string; name?: string; error?: unknown };
       console.info("FB /me", { ok: fbMe.ok, data: fbMeData });
       if (!fbMe.ok) {
