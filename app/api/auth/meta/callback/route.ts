@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
   /* ── 2. Long-lived token (60 days) ── */
   const llUrl = new URL("https://graph.instagram.com/access_token");
   llUrl.searchParams.set("grant_type",    "ig_exchange_token");
-  llUrl.searchParams.set("client_id",     appId);
   llUrl.searchParams.set("client_secret", appSecret);
   llUrl.searchParams.set("access_token",  tokenData.access_token);
 
