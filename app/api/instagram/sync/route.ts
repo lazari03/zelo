@@ -68,6 +68,14 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
+    const convData = JSON.parse(convBody) as {
+      data?: Array<{
+        id: string;
+        updated_time: string;
+        participants?: { data: Array<{ id: string }> };
+      }>;
+    };
+
     for (const conv of convData.data ?? []) {
       const otherParticipant = conv.participants?.data.find((p) => p.id !== pageId);
       const senderId = otherParticipant?.id ?? conv.id;
