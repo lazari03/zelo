@@ -85,9 +85,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const meUrl = new URL("https://graph.instagram.com/me");
-    meUrl.searchParams.set("fields",       "id,username");
-    meUrl.searchParams.set("access_token", finalToken);
-    const meRes  = await fetch(meUrl.toString());
+    meUrl.searchParams.set("fields", "id,username");
+    const meRes  = await fetch(meUrl.toString(), {
+      headers: { Authorization: `Bearer ${finalToken}` },
+    });
     const meData = await meRes.json() as { id?: string; username?: string };
     if (meData.id)       igUserId          = meData.id;
     if (meData.username) instagramUsername = meData.username;

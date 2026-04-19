@@ -25,43 +25,27 @@ export async function POST(request: NextRequest) {
 
     console.info("Trying token", { pageId, tokenPrefix: accessToken.slice(0, 12) + "…", tokenLen: accessToken.length });
 
-    // Skip /me verification — use stored pageId directly
-    // Try both IG and FB conversation endpoints
-    let convUrl: URL;
-    let apiBase = IG_API;
+    const authHeader = { Authorization: `Bearer ${accessToken}` };
 
-    // First attempt: IG API with pageId
-    convUrl = new URL(`${IG_API}/v21.0/${pageId}/conversations`);
-    convUrl.searchParams.set("platform", "instagram");
-    convUrl.searchParams.set("fields", "id,updated_time,participants");
-    convUrl.searchParams.set("access_token", accessToken);
-
-    let convRes = await fetch(convUrl.toString());
+    // First attempt: IG API with pageId (Bearer header)
+    const convUrl1 = new URL(`${IG_API}/v21.0/${pageId}/conversations`);
+    convUrl1.searchParams.set("platform", "instagram");
+    convUrl1.searchParams.set("fields", "id,updated_time,participants");
+    let convRes = await fetch(convUrl1.toString(), { headers: authHeader });
     let convBody = await convRes.text();
-    console.info("IG conversations", { status: convRes.status, body: convBody });
+    console.info("IG conversations (Bearer)", { status: convRes.status, body: convBody });
 
-    // Second attempt: IG API with /me/conversations
+    // Second attempt: IG /me/conversations (Bearer header)
     if (!convRes.ok) {
-      convUrl = new URL(`${IG_API}/v21.0/me/conversations`);
-      convUrl.searchParams.set("platform", "instagram");
-      convUrl.searchParams.set("fields", "id,updated_time,participants");
-      convUrl.searchParams.set("access_token", accessToken);
-      convRes = await fetch(convUrl.toString());
+      const convUrl2 = new URL(`${IG_API}/v21.0/me/conversations`);
+      convUrl2.searchParams.set("platform", "instagram");
+      convUrl2.searchParams.set("fields", "id,updated_time,participants");
+      convRes = await fetch(convUrl2.toString(), { headers: authHeader });
       convBody = await convRes.text();
-      console.info("IG /me/conversations", { status: convRes.status, body: convBody });
+      console.info("IG /me/conversations (Bearer)", { status: convRes.status, body: convBody });
     }
 
-    // Third attempt: FB Graph API
-    if (!convRes.ok) {
-      apiBase = FB_API;
-      convUrl = new URL(`${FB_API}/${pageId}/conversations`);
-      convUrl.searchParams.set("platform", "instagram");
-      convUrl.searchParams.set("fields", "id,updated_time,participants");
-      convUrl.searchParams.set("access_token", accessToken);
-      convRes = await fetch(convUrl.toString());
-      convBody = await convRes.text();
-      console.info("FB conversations", { status: convRes.status, body: convBody });
-    }
+    const apiBase = convRes.ok ? IG_API : FB_API;
 
     if (!convRes.ok) {
       console.error("All conversation endpoints failed for account", pageId);
@@ -82,9 +66,8 @@ export async function POST(request: NextRequest) {
 
       const msgUrl = new URL(`${apiBase}/${conv.id}/messages`);
       msgUrl.searchParams.set("fields", "id,text,from,timestamp");
-      msgUrl.searchParams.set("access_token", accessToken);
 
-      const msgRes = await fetch(msgUrl.toString());
+      const msgRes = await fetch(msgUrl.toString(), { headers: authHeader });
       type RawMsg = { id: string; text?: string; from?: { id: string }; timestamp: string };
       const rawMessages: RawMsg[] = [];
 
