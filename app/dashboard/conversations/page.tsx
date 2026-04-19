@@ -121,6 +121,27 @@ export default function ConversationsPage() {
   const [loading,       setLoading]       = useState(true);
   const [search,        setSearch]        = useState("");
   const [filterOrder,   setFilterOrder]   = useState(false);
+  const [syncing,       setSyncing]       = useState(false);
+  const [syncMsg,       setSyncMsg]       = useState<string | null>(null);
+
+  async function handleSync() {
+    if (!user) return;
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/instagram/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      const data = await res.json() as { ok: boolean; synced?: number; error?: string };
+      setSyncMsg(data.ok ? `Synced ${data.synced} conversation${data.synced !== 1 ? "s" : ""}` : (data.error ?? "Sync failed"));
+    } catch {
+      setSyncMsg("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -154,8 +175,14 @@ export default function ConversationsPage() {
             All DM conversations handled by Zelo — click any row to view the full thread.
           </p>
         </div>
-        <div className="text-white/30 text-[11.5px] shrink-0">
-          {conversations.length} total
+        <div className="flex items-center gap-3 shrink-0">
+          {syncMsg && <span className="text-white/30 text-[11.5px]">{syncMsg}</span>}
+          <button onClick={handleSync} disabled={syncing}
+            className="btn btn-secondary text-[12px] disabled:opacity-40">
+            <Icon path="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" size={12} />
+            {syncing ? "Syncing…" : "Sync inbox"}
+          </button>
+          <span className="text-white/30 text-[11.5px]">{conversations.length} total</span>
         </div>
       </div>
 
